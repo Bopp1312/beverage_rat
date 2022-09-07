@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 
-matrix_coef = np.load("Calibration/matrix_coefficents.npy")
-distortion_coef = np.load("Calibration/distortion_coefficents.npy")
+matrix_coef = np.load("../Calibration/matrix_coefficents.npy")
+distortion_coef = np.load("../Calibration/distortion_coefficents.npy")
 marker_length = 58/1000.0 #m
 
 def main():
