@@ -10,7 +10,7 @@ pub = rospy.Publisher('cmd/velocity', Twist,queue_size=1)
 def callback(data):
 	print(data.axes[0])
 	twist = Twist()
-	twist.linear.x = -1.0*data.axes[0]
+	twist.linear.x = -0.5*data.axes[0]
 	twist.angular.z = data.axes[1]*0.5
 	pub.publish(twist)
 
