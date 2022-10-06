@@ -10,16 +10,16 @@ from scipy.spatial.transform import Rotation as R
 
 class Kalman_node:
     def __init__(self):
-        rospy.Subscriber("/imu", Imu, self.imu_callback, queue_size=1)
+        rospy.Subscriber("/heading", Twist, self.imu_callback, queue_size=1)
         rospy.Subscriber("/odom", Twist, self.odom_callback, queue_size=1)
         rospy.Subscriber("/visual", Pose, self.visual_callback, queue_size=1)
         rospy.Subscriber("/cmd/velocity", Twist, self.command_callback, queue_size=1)
-        self.pose_pub = rospy.Publisher("/kalman/pose", Pose, queue_size=1)
+        self.pose_pub = rospy.Publisher("/kalman/pose/test", Pose, queue_size=1)
 
         # Create uncertainty matrices
         self.P_0 = np.diag((0.001, 0.001, 0.001, 0.001, 0.001, 0.001))
         Q = self.P_0
-        R = np.diag((0.1, 0.1, 0.001, 0.001))
+        R = np.diag((0.1, 0.1, 0.1, 0.1))
 
         self.pose = Pose()
 
@@ -62,11 +62,8 @@ class Kalman_node:
 
     def imu_callback(self, data):
         print("imu")
-        quat = data.orientation
-        rotation = R.from_quat([quat.x, quat.y, quat.z, quat.w])
-        euler_angles = rotation.as_euler('xyz')
-        self.theta = euler_angles[2]
-        self.theta_dot = data.angular_velocity.z
+        self.theta = data.linear.x*np.pi/180.0
+        
 
     def odom_callback(self, data):
         print("odom")
@@ -74,6 +71,7 @@ class Kalman_node:
         self.robot_ang_vel_z = data.angular.z
         self.world_lin_vel_x = np.cos(self.theta)*self.robot_lin_vel_x
         self.world_lin_vel_y = np.sin(self.theta)*self.robot_lin_vel_x
+        self.theta_dot = self.robot_ang_vel_z
 
     def visual_callback(self, data):
         # Use the visual pose estimate to
