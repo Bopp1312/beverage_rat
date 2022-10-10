@@ -7,13 +7,18 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
 
-matrix_coef = np.load("../Calibration/matrix_coefficents.npy")
-distortion_coef = np.load("../Calibration/distortion_coefficents.npy")
-marker_length = 0.21*1000#m
+from geometry_msgs import PoseStamped
 
+feet_to_meters = 39.37/12.0
+
+matrix_coef = np.load("../../Calibration/matrix_coefficents.npy")
+distortion_coef = np.load("../../Calibration/distortion_coefficents.npy")
+marker_length = 0.21 #m
+
+origins = {0: ()}
 def main():
     cap = cv2.VideoCapture(2)
-    while(True):
+    while(rospy.is_shutdown() == False):
         # Capture frame-by-frame
         ret, frame = cap.read()
         frame = cv2.resize(frame, (800,450),cv2.INTER_LINEAR)
@@ -44,4 +49,5 @@ def main():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
+    rospy.init_node("aruco_watcher",)
     main()
