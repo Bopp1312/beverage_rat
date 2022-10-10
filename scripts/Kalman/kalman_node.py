@@ -14,16 +14,16 @@ class Kalman_node:
         rospy.Subscriber("/odom", Twist, self.odom_callback, queue_size=1)
         rospy.Subscriber("/visual", Pose, self.visual_callback, queue_size=1)
         rospy.Subscriber("/cmd/velocity", Twist, self.command_callback, queue_size=1)
-        self.pose_pub = rospy.Publisher("/kalman/pose/test", Pose, queue_size=1)
+        self.pose_pub = rospy.Publisher("/kalman/pose", Pose, queue_size=1)
 
         # Create uncertainty matrices
         self.P_0 = np.diag((0.001, 0.001, 0.001, 0.001, 0.001, 0.001))
         Q = self.P_0
-        R = np.diag((0.1, 0.1, 0.1, 0.1))
+        R = np.diag((0.00001, 0.00001, 0.00001, 0.00001))
 
         self.pose = Pose()
 
-        freq = 30
+        freq = 50
         dt = 1/freq
 
         # Initialize states
@@ -36,6 +36,7 @@ class Kalman_node:
                              [0],
                              [0],
                              [0]])
+
         self.A = np.matrix([[1, 0, 0, dt,  0,  0],
                             [0, 1, 0,  0, dt,  0],
                             [0, 0, 1,  0,  0, dt],
