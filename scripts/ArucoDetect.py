@@ -9,7 +9,7 @@ import pandas as pd
 
 matrix_coef = np.load("../Calibration/matrix_coefficents.npy")
 distortion_coef = np.load("../Calibration/distortion_coefficents.npy")
-marker_length = 0.20955 #m
+marker_length = 0.21*1000#m
 
 def main():
     cap = cv2.VideoCapture(2)
@@ -28,7 +28,8 @@ def main():
             for i in range(len(ids)):
                 rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(corners[i], marker_length, matrix_coef,distortion_coef)
                 #print(rvec)
-                print(tvec)
+                print(tvec[0][0]/1000)
+                print(ids[i])
                 frame = (cv2.aruco.drawAxis(frame,matrix_coef,distortion_coef,rvec[i,:,:],tvec[i,:,:],marker_length))
 
         #thumbnail = cv2.resize(frame, (900,600), cv2.INTER_LINEAR)
