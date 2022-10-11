@@ -9,17 +9,17 @@ import pandas as pd
 
 matrix_coef = np.load("../Calibration/matrix_coefficents.npy")
 distortion_coef = np.load("../Calibration/distortion_coefficents.npy")
-marker_length = 0.21*1000#m
+marker_length = 0.028
 
 def main():
     cap = cv2.VideoCapture(2)
     while(True):
         # Capture frame-by-frame
         ret, frame = cap.read()
-        frame = cv2.resize(frame, (800,450),cv2.INTER_LINEAR)
+        #frame = cv2.resize(frame, (800,450),cv2.INTER_LINEAR)
         # Extract all information of tags from image
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
+        aruco_dict = aruco.Dictionary_get(aruco.DICT_6X6_250)
         parameters =  aruco.DetectorParameters_create()
         corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters,cameraMatrix=matrix_coef,distCoeff=distortion_coef)
     
@@ -28,9 +28,10 @@ def main():
             for i in range(len(ids)):
                 rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(corners[i], marker_length, matrix_coef,distortion_coef)
                 #print(rvec)
-                print(tvec[0][0]/1000)
+                print(tvec[0][0])
                 print(ids[i])
                 frame = (cv2.aruco.drawAxis(frame,matrix_coef,distortion_coef,rvec[i,:,:],tvec[i,:,:],marker_length))
+                break
 
         #thumbnail = cv2.resize(frame, (900,600), cv2.INTER_LINEAR)
         thumbnail = frame
