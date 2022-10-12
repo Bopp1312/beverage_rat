@@ -30,6 +30,7 @@ while(True):
         cv2.imwrite(dest+"Image_"+str(i)+".jpg",frame)
         i = i +1
         next_time = time.time()+period
+        print("Picture: " + str(i))
 
 cap.release()
 cv2.destroyAllWindows()

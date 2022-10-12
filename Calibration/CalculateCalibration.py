@@ -25,9 +25,6 @@ order = np.argsort([int((p.split("_")[-1]).split(".")[0]) for p in images])
 images = images[order]
 print(images)
 
-
-
-
 def read_chessboards(images):
     """
     Charuco base pose estimation.
