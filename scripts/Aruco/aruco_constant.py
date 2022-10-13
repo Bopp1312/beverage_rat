@@ -1,13 +1,14 @@
-#! /usr/bin/ python3
+#!/usr/bin/env python3
 
 import numpy as np
+import rospy
 import cv2, PIL
 from cv2 import aruco
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pandas as pd
-import denHartLib as dh
 from geometry_msgs.msg import PoseStamped
+import denHartLib as dh
 
 aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 parameters =  aruco.DetectorParameters_create()
@@ -22,7 +23,9 @@ marker_length = 0.210 #m
 # Transform from world origin to markers
 # World frame is defined as 0.5 meters infront of marker:0
 # with X+ of the world frame facing Marker:0
-TW_0 = dh.transformTranx(0.5) * dh.rotz(np.pi)
+TW_0 = np.matmul(dh.transformTranx(0.5),dh.transformRotz(np.pi))
+point = np.array([[0.25],[0.25],[0],[1]])
+print(TW_0*point)
 
 print(TW_0)
 
