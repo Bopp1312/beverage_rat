@@ -13,7 +13,7 @@ feet_to_meters = 39.37/12.0
 
 matrix_coef = np.load("../../Calibration/matrix_coefficents.npy")
 distortion_coef = np.load("../../Calibration/distortion_coefficents.npy")
-marker_length = 0.21 #m
+marker_length = 0.210 #m
 
 origins = {0: ()}
 def main():

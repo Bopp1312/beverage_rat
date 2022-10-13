@@ -28,7 +28,9 @@ def main():
             for i in range(len(ids)):
                 rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(corners[i], marker_length, matrix_coef,distortion_coef)
                 #print(rvec)
-                print(tvec[0][0])
+                #print(tvec[0][0])
+                dist = np.linalg.norm(tvec[0][0])
+                print("Distance: " + str(dist))
                 print(ids[i])
                 frame = (cv2.aruco.drawAxis(frame,matrix_coef,distortion_coef,rvec[i,:,:],tvec[i,:,:],marker_length))
                 break
