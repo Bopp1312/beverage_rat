@@ -1,0 +1,17 @@
+<launch>
+	
+	<node name="rosserial_node" pkg="rosserial_python" type="serial_node.py" output="screen">
+		<param name="port" value="/dev/arduino_mega" />
+	</node>
+
+	<node name="joy_node" pkg="joy" type="joy_node" >
+		<param name="autorepeat_rate" value="30"/>
+	</node>
+	
+	<node name="joy_driver" pkg="beverage-rat" type="joy_command.py" />
+    
+    <node name="aruco_publisher" pkg="beverage-rat" type="aruco_constant.py" output="screen" />
+
+    <node name="kalman_filter" pkg="beverage-rat" type="kalman_node.py" />
+
+</launch>
