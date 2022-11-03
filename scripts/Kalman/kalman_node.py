@@ -5,7 +5,7 @@ import numpy as np
 import threading
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Imu
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import PoseStamped, Pose
 from scipy.spatial.transform import Rotation as R
 
 class Kalman_node:
@@ -14,6 +14,7 @@ class Kalman_node:
         rospy.Subscriber("/odom", Twist, self.odom_callback, queue_size=1)
         rospy.Subscriber("/visual", Pose, self.visual_callback, queue_size=1)
         rospy.Subscriber("/cmd/velocity", Twist, self.command_callback, queue_size=1)
+        rospy.Subscriber("/robot/pose", PoseStamped, self.grounding_update, queue_size=1)
         self.pose_pub = rospy.Publisher("/kalman/pose", Pose, queue_size=1)
 
         # Create uncertainty matrices
@@ -60,6 +61,49 @@ class Kalman_node:
 
         self.thread = threading.Thread(target=self.loop)
         self.thread.start()
+
+    def grounding_update(self, msg):
+        new_x = msg.pose.position.x 
+        new_y = msg.pose.position.y 
+        # Create uncertainty matrices
+        self.P_0 = np.diag((0.001, 0.001, 0.001, 0.001, 0.001, 0.001))
+        Q = self.P_0
+        R = np.diag((0.00001, 0.00001, 0.00001, 0.00001))
+
+        self.pose = Pose()
+
+        freq = 50
+        dt = 1/freq
+
+        # Initialize states
+        self.theta = 0
+        self.theta_dot = 0
+
+        self.X_0 = np.matrix([[new_x],
+                              [new_y],
+                              [self.theta],
+                              [0],
+                              [0],
+                              [0]])
+
+        self.A = np.matrix([[1, 0, 0, dt,  0,  0],
+                            [0, 1, 0,  0, dt,  0],
+                            [0, 0, 1,  0,  0, dt],
+                            [0, 0, 0,  0,  0,  0],
+                            [0, 0, 0,  0,  0,  0],
+                            [0, 0, 0,  0,  0,  0]])
+
+        self.H = np.matrix([[0,0,0,1,0,0],
+                            [0,0,0,0,1,0],
+                            [0,0,1,0,0,0],
+                            [0,0,0,0,0,1]])
+
+        self.X = self.X_0
+        self.X_n_n = self.X_0
+        self.P_n_n = self.P_0
+        self.Q = Q
+        self.R = R
+        print("updated")
 
     def imu_callback(self, data):
         print("imu")
