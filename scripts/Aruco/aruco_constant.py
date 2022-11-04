@@ -11,6 +11,9 @@ import pandas as pd
 from geometry_msgs.msg import PoseStamped
 import denHartLib as dh
 import rospkg
+import tf
+
+br = tf.TransformBroadcaster()
 
 aruco_dict = aruco.Dictionary_get(aruco.DICT_4X4_50)
 parameters =  aruco.DetectorParameters_create()
@@ -43,7 +46,9 @@ def main():
     tran_camera_robot = dh.transformRotx(np.pi/2)*dh.transformRotz(np.pi/2)*dh.transformTranx(-0.125)
     tran_tag_w = dh.transformRotx(-np.pi/2)*dh.transformRotz(-np.pi/2)
     tran_w_tag = np.linalg.inv(tran_tag_w)
-
+    
+    # Publish transforms
+    br.sendTransform((0,0,0),(0,0,0,1), rospy.Time.now(),"root","world")
 
     pub = rospy.Publisher("robot/pose", PoseStamped, queue_size=1)
     cap = cv2.VideoCapture(2)
