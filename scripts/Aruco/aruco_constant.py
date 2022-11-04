@@ -12,6 +12,7 @@ from geometry_msgs.msg import PoseStamped
 import denHartLib as dh
 import rospkg
 import tf
+from scipy.spatial.transform import Rotation as R 
 
 br = tf.TransformBroadcaster()
 
@@ -40,6 +41,14 @@ print(TW_0*point)
 
 print(TW_0)
 
+def broadcast_transform(tran, child_name, base_name):
+    time = rospy.Time.now()
+    position = (tran[0,3],tran[1,3],tran[2,3])
+    rot_m = tran[:3,:3]
+    r = R.from_matrix(rot_m)
+    [w,x,y,z] = r.as_quat()
+    br.sendTransform(position,(x,y,z,w),time,child_name, base_name)
+
 def main():
     last_publish = time.time()
     
@@ -48,14 +57,15 @@ def main():
     tran_w_tag = np.linalg.inv(tran_tag_w)
     
     # Publish transforms
-    br.sendTransform((0,0,0),(0,0,0,1), rospy.Time.now(),"world","root")
     
 
     pub = rospy.Publisher("robot/pose", PoseStamped, queue_size=1)
     cap = cv2.VideoCapture(2)
     
     while(not rospy.is_shutdown()):
-        br.sendTransform((1,0,0),(0,0,0,1), rospy.Time.now(),"this","world")
+        br.sendTransform((1,0,0),(0,0,0,1), rospy.Time.now(),"world","root")
+        broadcast_transform(tran_camera_robot,"robot","camera")
+        broadcast_transform(tran_w_tag,"tag","world")
 
         if((time.time() - last_publish) > marker_timeout):
 
