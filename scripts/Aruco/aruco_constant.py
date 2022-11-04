@@ -89,6 +89,7 @@ def main():
                         tran_tag_camera = np.linalg.inv(tran_camera_tag)
 
                         tran_w_robot = tran_w_tag*tran_tag_camera*tran_camera_robot
+                        broadcast_transform(tran_w_robot,"robot","world")
                         print(tran_w_robot)
                         msg = PoseStamped()
                         msg.header.stamp = rospy.Time.now()
