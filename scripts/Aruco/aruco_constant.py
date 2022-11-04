@@ -48,12 +48,15 @@ def main():
     tran_w_tag = np.linalg.inv(tran_tag_w)
     
     # Publish transforms
-    br.sendTransform((0,0,0),(0,0,0,1), rospy.Time.now(),"root","world")
+    br.sendTransform((0,0,0),(0,0,0,1), rospy.Time.now(),"world","root")
+    
 
     pub = rospy.Publisher("robot/pose", PoseStamped, queue_size=1)
     cap = cv2.VideoCapture(2)
     
     while(not rospy.is_shutdown()):
+        br.sendTransform((1,0,0),(0,0,0,1), rospy.Time.now(),"this","world")
+
         if((time.time() - last_publish) > marker_timeout):
 
             # Capture frame-by-frame
