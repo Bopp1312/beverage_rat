@@ -6,16 +6,45 @@ import threading
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Imu
 from geometry_msgs.msg import PoseStamped, Pose
+from std_msgs.msg import Float64MultiArray
 from scipy.spatial.transform import Rotation as R
+import tf
 
+def get_quaternion_from_euler(roll, pitch, yaw):
+  """
+  Convert an Euler angle to a quaternion.
+   
+  Input
+    :param roll: The roll (rotation around x-axis) angle in radians.
+    :param pitch: The pitch (rotation around y-axis) angle in radians.
+    :param yaw: The yaw (rotation around z-axis) angle in radians.
+ 
+  Output
+    :return qx, qy, qz, qw: The orientation in quaternion [x,y,z,w] format
+  """
+  qx = np.sin(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) - np.cos(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+  qy = np.cos(roll/2) * np.sin(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.cos(pitch/2) * np.sin(yaw/2)
+  qz = np.cos(roll/2) * np.cos(pitch/2) * np.sin(yaw/2) - np.sin(roll/2) * np.sin(pitch/2) * np.cos(yaw/2)
+  qw = np.cos(roll/2) * np.cos(pitch/2) * np.cos(yaw/2) + np.sin(roll/2) * np.sin(pitch/2) * np.sin(yaw/2)
+ 
+  return [qx, qy, qz, qw]
+ 
 class Kalman_node:
     def __init__(self):
         rospy.Subscriber("/heading", Twist, self.imu_callback, queue_size=1)
         rospy.Subscriber("/odom", Twist, self.odom_callback, queue_size=1)
         rospy.Subscriber("/visual", Pose, self.visual_callback, queue_size=1)
         rospy.Subscriber("/cmd/velocity", Twist, self.command_callback, queue_size=1)
-        rospy.Subscriber("/robot/pose", PoseStamped, self.grounding_update, queue_size=1)
+        #rospy.Subscriber("/robot/pose", PoseStamped, self.grounding_update, queue_size=1)
+
+        self.listener = tf.TransformListener()
+        self.br = tf.TransformBroadcaster()
+        
         self.pose_pub = rospy.Publisher("/kalman/pose", Pose, queue_size=1)
+        self.kalman_gain_pub = rospy.Publisher("kalman/gain", Float64MultiArray, queue_size=1)
+        self.kalman_estimate_pub = rospy.Publisher("kalman/estimate",Float64MultiArray, queue_size=1)
+
+        self.kalman_lin_vel_w_pub = rospy.Publisher("kalman/world/lin_vel",Float64MultiArray, queue_size=1)
 
         # Create uncertainty matrices
         self.P_0 = np.diag((0.001, 0.001, 0.001, 0.001, 0.001, 0.001))
@@ -28,8 +57,12 @@ class Kalman_node:
         dt = 1/freq
 
         # Initialize states
+        self.theta_offset = 0 # Degrees
         self.theta = 0
         self.theta_dot = 0
+
+        self.robot_ang_vel_z = 0 
+        self.robot_lin_vel_x = 0
 
         self.X_0 = np.matrix([[0],
                              [0],
@@ -62,9 +95,9 @@ class Kalman_node:
         self.thread = threading.Thread(target=self.loop)
         self.thread.start()
 
-    def grounding_update(self, msg):
-        new_x = msg.pose.position.x 
-        new_y = msg.pose.position.y 
+    def restart_filter(self, trans):
+        new_x = trans[0] 
+        new_y = trans[1] 
         # Create uncertainty matrices
         self.P_0 = np.diag((0.001, 0.001, 0.001, 0.001, 0.001, 0.001))
         Q = self.P_0
@@ -103,20 +136,22 @@ class Kalman_node:
         self.P_n_n = self.P_0
         self.Q = Q
         self.R = R
-        print("updated")
+        #print("updated")
 
     def imu_callback(self, data):
-        print("imu")
-        self.theta = data.linear.x*np.pi/180.0
-        
-
+        #print("imu")
+        self.theta = -1.0*data.linear.x*np.pi/180.0 
+ 
     def odom_callback(self, data):
-        print("odom")
+        #print("odom")
         self.robot_lin_vel_x = data.linear.x
-        self.robot_ang_vel_z = data.angular.z
+        self.robot_ang_vel_z = -1.0*data.angular.z
         self.world_lin_vel_x = np.cos(self.theta)*self.robot_lin_vel_x
         self.world_lin_vel_y = np.sin(self.theta)*self.robot_lin_vel_x
         self.theta_dot = self.robot_ang_vel_z
+        msg_vel = Float64MultiArray()
+        msg_vel.data = [self.world_lin_vel_x,self.world_lin_vel_y]
+        self.kalman_lin_vel_w_pub.publish(msg_vel)
 
     def visual_callback(self, data):
         # Use the visual pose estimate to
@@ -154,9 +189,14 @@ class Kalman_node:
 
         # State Estimation
         (X_e,P_1) = self.predict(self.A,self.B,self.U)
+        
+        msg = Float64MultiArray()
+        msg.data = np.diagonal(P_1).tolist()
+        self.kalman_estimate_pub.publish(msg)
+        
         self.update(self.H, z)
 
-        print(X_e)
+        #print(X_e)
         self.pose.position.x = X_e[0,0]
         self.pose.position.y = X_e[1,0]
         self.pose_pub.publish(self.pose)
@@ -170,6 +210,18 @@ class Kalman_node:
                 self.update_estimation()
             except Exception as e:
                 print("Problem: " + str(e))
+            
+            vel = np.matrix([self.robot_ang_vel_z, self.robot_lin_vel_x])
+            quat = get_quaternion_from_euler(0,0,self.theta)
+            self.br.sendTransform((self.pose.position.x,self.pose.position.y,0),quat, rospy.Time.now(),"robot","world")
+
+            # if(np.linalg.norm(vel)<0.05):
+            #     try:
+            #         (trans,rot) = self.listener.lookupTransform('/camera', '/world', rospy.Time(0))
+            #         self.restart_filter(trans)
+            #     except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
+            #         print("No transform ready")
+
             self.rate.sleep()
 
     def predict(self, A, B, U):
@@ -191,6 +243,11 @@ class Kalman_node:
         K_n = P*H.transpose()*np.linalg.inv(H*P*H.transpose()+R)
         self.X_n_n = X + K_n*(z_n - H*X)
         self.P_n_n = (I-K_n*H)*P*(I-K_n*H).transpose()+K_n*R*K_n.transpose()
+        
+        msg = Float64MultiArray()
+        msg.data = np.diagonal(K_n).tolist()
+        self.kalman_gain_pub.publish(msg)
+        
         return (self.X_n_n, self.P_n_n)
 
 

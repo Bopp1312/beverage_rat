@@ -100,7 +100,7 @@ np.save("matrix_coefficents",mtx)
 np.save("distortion_coefficents",dist)
 
 
-i=50 # select image id
+i=20 # select image id
 plt.figure()
 frame = cv2.imread(images[i])
 img_undist = cv2.undistort(frame,mtx,dist,None)

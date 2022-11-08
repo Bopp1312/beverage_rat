@@ -12,6 +12,6 @@
     
     <node name="aruco_publisher" pkg="beverage-rat" type="aruco_constant.py" output="screen" />
 
-    <node name="kalman_filter" pkg="beverage-rat" type="kalman_node.py" />
+    <!-- <node name="kalman_filter" pkg="beverage-rat" type="kalman_node.py" /> -->
 
 </launch>

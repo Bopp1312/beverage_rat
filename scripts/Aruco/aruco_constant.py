@@ -29,7 +29,7 @@ distortion_coef = np.load(pkg_path + "/Calibration/distortion_coefficents.npy")
 
 marker_length = 0.210 #m
 
-marker_timeout = 2.0 # seconds
+marker_timeout = 0.5 # seconds
 marker_distance = 2.0 # meters
 
 # Transform from world origin to markers
@@ -43,71 +43,72 @@ print(TW_0)
 
 def broadcast_transform(tran, child_name, base_name):
     time = rospy.Time.now()
-    position = (tran[0,3],tran[1,3],tran[2,3])
+    pos = (tran[0,3],tran[1,3],tran[2,3])
     rot_m = tran[:3,:3]
     r = R.from_matrix(rot_m)
-    [w,x,y,z] = r.as_quat()
-    br.sendTransform(position,(x,y,z,w),time,child_name, base_name)
+    w,x,y,z = r.as_quat()
+    quat = (x,y,z,w)
+
+    br.sendTransform(pos,quat,time,child_name, base_name)
 
 def main():
     last_publish = time.time()
     
-    tran_camera_robot = dh.transformRotx(np.pi/2)*dh.transformRotz(np.pi/2)*dh.transformTranx(-0.125)
-    tran_tag_w = dh.transformRotx(-np.pi/2)*dh.transformRotz(-np.pi/2)
-    tran_w_tag = np.linalg.inv(tran_tag_w)
-    
-    # Publish transforms
-    
+    #tran_camera_robot = dh.transformRotx(np.pi/2)*dh.transformRotz(np.pi/2)*dh.transformTranx(-1.125)
+    tran_camera_robot_0 = np.matmul(dh.transformRotx(np.pi),dh.transformRotz(np.pi/2))
+    tran_camera_robot = np.matmul(tran_camera_robot_0,dh.transformTranx(-0.125))
+
+    tran_w_tag_0 = np.matmul(dh.transformTranz(0.15),dh.transformRotz(np.pi/2))
+    tran_w_tag = np.matmul(tran_w_tag_0,dh.transformRotx(np.pi/2)) # np.linalg.inv(tran_tag_w)
+    print("World to tag: ")
+    print(tran_w_tag)    
 
     pub = rospy.Publisher("robot/pose", PoseStamped, queue_size=1)
     cap = cv2.VideoCapture(2)
     
     while(not rospy.is_shutdown()):
-        br.sendTransform((1,0,0),(0,0,0,1), rospy.Time.now(),"world","root")
-        broadcast_transform(tran_camera_robot,"robot","camera")
-        broadcast_transform(tran_w_tag,"tag","world")
-
         if((time.time() - last_publish) > marker_timeout):
 
             # Capture frame-by-frame
             ret, frame = cap.read()
             # Extract all information of tags from image
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
+            
             corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters,cameraMatrix=matrix_coef,distCoeff=distortion_coef)
     
-            #frame = (aruco.drawDetectedMarkers(frame.copy(), corners, ids))
             if len(corners) > 0:
                 for i in range(len(ids)):
                     rvec, tvec, markerPoints = cv2.aruco.estimatePoseSingleMarkers(corners[i], marker_length, matrix_coef,distortion_coef)
-                    #print(rvec)
                     print(ids[i])
-                    print(tvec[0][0])
                     if(ids[0] == 0):
                         # Publish aruco marker to ROS
                         tran_camera_tag = toTransform(rvec, tvec)
-                        tran_tag_camera = np.linalg.inv(tran_camera_tag)
+                        
+                        # Unknown error in rotation this frame has good position
+                        broadcast_transform(dh.homogenousTranspose(tran_camera_tag),"camera","tag")
 
-                        tran_w_robot = tran_w_tag*tran_tag_camera*tran_camera_robot
-                        broadcast_transform(tran_w_robot,"robot","world")
-                        print(tran_w_robot)
-                        msg = PoseStamped()
-                        msg.header.stamp = rospy.Time.now()
-                        msg.pose.position.x = tran_w_robot[0,3]
-                        msg.pose.position.y = tran_w_robot[1,3]
-                        msg.pose.position.z = tran_w_robot[2,3]
+                        last_publish = time.time()
+                    if(ids[0] == 1):
+                        # Publish aruco marker to ROS
+                        tran_camera_tag = toTransform(rvec, tvec)
+                        
+                        # Unknown error in rotation this frame has good position
+                        broadcast_transform(dh.homogenousTranspose(tran_camera_tag),"camera","tag")
 
-                        pub.publish(msg)
                         last_publish = time.time()
                     frame_marked = cv2.aruco.drawDetectedMarkers(frame,corners)
                     frame_marked = cv2.drawFrameAxes(frame_marked,matrix_coef,distortion_coef,rvec[i,:,:],tvec[i,:,:],marker_length,thickness=8)
 
+                thumbnail = cv2.resize(frame_marked,(800,450),cv2.INTER_LINEAR)
+                # Display the resulting frame
+                cv2.imshow("frame",thumbnail)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    quit()
+        br.sendTransform((0,0,0),(0,0,0,1), rospy.Time.now(),"world","root")
+        #broadcast_transform(tran_robot_camera,"camera","robot")
+        #broadcast_transform(tran_camera_robot,"robot","camera")
 
-            thumbnail = cv2.resize(frame_marked, (800,450), cv2.INTER_LINEAR)
-            # Display the resulting frame
-            cv2.imshow("frame",thumbnail)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                quit()
+        broadcast_transform(tran_w_tag,"tag","world")
 
     # When everything done, release the capture
     cap.release()
@@ -119,7 +120,7 @@ def toTransform(rVec,tVec):
     position = tVec
     transform[:3,:3] = rotation
     transform[:3,3] = position
-    return np.matrix(transform) 
+    return transform
 
 if __name__ == "__main__":
     rospy.init_node("aruco_watcher",)
