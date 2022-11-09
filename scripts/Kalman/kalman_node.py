@@ -92,7 +92,7 @@ class Kalman_node:
         self.rate = rospy.Rate(freq)
         # Start loop on a thread
 
-        self.thread = threading.Thread(target=self.loop)
+        self.thread = threading.Thread(target=self.loop())
         self.thread.start()
 
     def restart_filter(self, trans):
@@ -199,6 +199,15 @@ class Kalman_node:
         #print(X_e)
         self.pose.position.x = X_e[0,0]
         self.pose.position.y = X_e[1,0]
+
+        r = R.from_euler('xyz',[self.theta,0,0])
+        w,x,y,z = r.as_quat()
+        
+        self.pose.orientation.x = x 
+        self.pose.orientation.y = y
+        self.pose.orientation.z = z 
+        self.pose.orientation.w = w 
+
         self.pose_pub.publish(self.pose)
 
         self.X = X_g
