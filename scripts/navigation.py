@@ -10,16 +10,18 @@ from geometry_msgs.msg import PoseStamped, Pose
 import time
 
 class Command:
-    def __init__(self,type,angle=0,position=[0,0],pause=0):
+    def __init__(self,type,distance=0,angle=0,position=[0,0],pause=0):
         # Types ["angle","position","pause"]
         self.type = type
         self.pause = pause #seconds
         self.position = position #(x,y)
         self.angle = angle
+        self.distance =distance
 
 rotate_30 = Command("angle",angle=30)
 rotate_60 = Command("angle",angle=60)
 rotate_0  = Command("angle",angle=0)
+forward_1 = Command("distance", distance=1)
 
 class Navigator:
     def __init__(self):
@@ -36,6 +38,7 @@ class Navigator:
         rospy.Subscriber("/kalman/pose",Pose,self.robot_pose_cb,queue_size=1)
 
         self.commands = []
+        self.commands.append(forward_1)
         self.commands.append(rotate_30)
         self.commands.append(rotate_60)
         self.commands.append(rotate_30)
@@ -43,7 +46,6 @@ class Navigator:
 
         self.thread = threading.Thread(target=self.loop())
         self.thread.start()
-        #self.loop()
 
         rospy.loginfo("Navigator Initialized")
     
@@ -58,6 +60,28 @@ class Navigator:
             rospy.loginfo("Go to angle: %.3f" %command.angle )
 
             self.go_to_angle(command.angle)
+
+    def go_to_distance(self, distance)
+        desired_distance = distance
+        start_pos = np.array([self.robot_pose.position.x,self.robot_pose.positin.position.y])
+        actual_distance = 0.0
+        
+        distance_error = desired_distance - actual_distance
+        msg = Twist()
+        while(np.abs(distance_error) > 0.001):
+            actual_pose = np.array([self.robot_pose.position.x,self.robot_pose.positin.position.y])
+            actual_distance = np.linalg.norm(actual_pose-start_pose)
+            distance_error = desired_distance - actual_distance
+            rospy.loginfo("Completing distance[error: %.3f actual: %.3f]"%(distance_error,actual_distance))
+            
+            msg.linear.x = self.clip(distance_error, -0.1,0.1)
+            self.robot_cmd_pub.publish(msg)
+            self.rate.sleep()
+        # Once finished
+        rospy.loginfo("Go to distance Complete")
+        msg.linear.x = 0
+        self.robot_cmd_pub.publish(msg)
+
 
     def go_to_angle(self, angle):
         # Publish desired robot frame
@@ -77,7 +101,7 @@ class Navigator:
             self.rate.sleep()
         # Once finished
         rospy.loginfo("Go to angle Complete")
-        zero = Twist()
+        msg.angular.z = 0
         self.robot_cmd_pub.publish(zero)
 
     def get_robot_yaw(self):
@@ -108,7 +132,6 @@ class Navigator:
             else: 
                 rospy.loginfo("Navigation complete")
                 quit()
-
 
 if __name__ == "__main__":
     rospy.init_node("navigator_node", anonymous=True)
